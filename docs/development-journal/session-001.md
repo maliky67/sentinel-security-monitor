@@ -70,7 +70,7 @@ Implemented eight Pytest tests covering:
 ## 4. Engineering Decisions
 
 | Decision | Reason |
-|---|---|
+| --- | --- |
 | Python 3.13 | Matches the local development environment and supports modern Python features. |
 | Virtual environment | Isolates project dependencies. |
 | `src/` package layout | Separates application code from project configuration and tests. |
@@ -82,7 +82,7 @@ Implemented eight Pytest tests covering:
 ## 5. Validation Results
 
 | Check | Status |
-|---|---|
+| --- | --- |
 | Python environment | Passed |
 | Virtual environment activation | Passed |
 | Package configuration correction | Completed |
@@ -103,7 +103,7 @@ This session reinforced several software engineering concepts:
 
 ## 7. Next Session Objectives
 
-**Session 002 — Log Ingestion and Data Normalization**
+### Session 002 — Log Ingestion and Data Normalization
 
 Planned tasks:
 
