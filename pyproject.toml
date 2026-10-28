@@ -26,7 +26,10 @@ dependencies = [
 dev = [
     "pytest>=8,<10",
     "ruff>=0.9,<1",
-    "httpx2"
+    "httpx2",
+    "pytest-cov>=6,<8",
+    "bandit>=1.8,<2",
+    "pip-audit>=2.7,<3",
 ]
 
 [tool.setuptools.packages.find]

@@ -2,7 +2,7 @@
 
 import json
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 from urllib.request import urlopen
 from uuid import UUID
 
@@ -22,19 +22,41 @@ def fetch_json(
     if not endpoint.startswith("/") or endpoint.startswith("//"):
         raise ValueError("Endpoint must be a relative API path")
 
+    if "\\" in endpoint:
+        raise ValueError("Backslashes are not permitted in API paths")
+
+    if "?" in endpoint or "#" in endpoint:
+        raise ValueError("Query strings and fragments are not permitted in API paths")
+
     query = f"?{urlencode(params)}" if params else ""
     url = f"{API_BASE_URL}{endpoint}{query}"
 
+    parsed = urlsplit(url)
+
+    if (
+        parsed.scheme != "http"
+        or parsed.hostname != "127.0.0.1"
+        or parsed.port != 8000
+        or parsed.username is not None
+        or parsed.password is not None
+        or parsed.fragment
+    ):
+        raise ValueError("Unexpected API destination")
+
     try:
-        with urlopen(url, timeout=REQUEST_TIMEOUT) as response:
+        # B310 reviewed: the URL is restricted to the local HTTP API.
+        # Do not remove this validation if API configuration changes.
+        with urlopen(url, timeout=REQUEST_TIMEOUT) as response:  # nosec B310
             data = json.load(response)
 
     except HTTPError as error:
         raise SentinelAPIError(f"API returned HTTP {error.code}") from error
+
     except (URLError, TimeoutError, OSError) as error:
         raise SentinelAPIError(
             "Cannot connect to Sentinel API at 127.0.0.1:8000"
         ) from error
+
     except (json.JSONDecodeError, UnicodeError) as error:
         raise SentinelAPIError("API returned an invalid JSON response") from error
 
@@ -45,10 +67,12 @@ def fetch_json(
 
 
 def get_health() -> dict:
+    """Retrieve the API health status."""
     return fetch_json("/health")
 
 
 def get_summary() -> dict:
+    """Retrieve aggregate security statistics."""
     return fetch_json("/stats/summary")
 
 
@@ -57,6 +81,7 @@ def get_events(
     offset: int = 0,
     outcome: str | None = None,
 ) -> dict:
+    """Retrieve paginated security events."""
     params: dict[str, str | int] = {
         "limit": limit,
         "offset": offset,
@@ -73,6 +98,7 @@ def get_alerts(
     offset: int = 0,
     severity: str | None = None,
 ) -> dict:
+    """Retrieve paginated security alerts."""
     params: dict[str, str | int] = {
         "limit": limit,
         "offset": offset,
@@ -85,6 +111,6 @@ def get_alerts(
 
 
 def get_alert(alert_id: str) -> dict:
-    """Retrieve one alert after validating its identifier."""
+    """Retrieve one security alert after UUID validation."""
     validated_id = UUID(alert_id)
     return fetch_json(f"/alerts/{validated_id}")

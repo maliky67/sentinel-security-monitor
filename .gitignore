@@ -16,6 +16,11 @@ dist/
 .ruff_cache/
 .coverage
 htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.pytest_cache/
 
 # Local environment configuration
 .env
