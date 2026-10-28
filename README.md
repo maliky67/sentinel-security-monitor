@@ -1,131 +1,47 @@
 # Sentinel — Security Event Detection Platform
 
-A Python-based security event monitoring and threat detection platform built to demonstrate backend engineering, cybersecurity practices, automated testing, and secure data processing.
+## Python | FastAPI | SQLAlchemy | SQLite | Cybersecurity
 
-Sentinel ingests structured security logs, validates security events, detects suspicious authentication patterns, and stores events and alerts in a persistent SQLite database.
+Sentinel is a Python-based security event monitoring and threat detection platform designed to ingest structured security logs, validate security events, identify suspicious authentication behavior, and provide access to security analytics through a REST API.
 
-The project is developed incrementally, with each session introducing new functionality, tests, and engineering documentation.
+The project demonstrates backend engineering, secure data processing, database design, automated testing, and cybersecurity fundamentals.
 
 ## Project Status
 
-### Sessions 1–4 Completed — Persistent Security Event Monitoring MVP
+## Sessions 1–5 — Core Backend Implemented
 
-**Current Milestone:** SQLite Database Persistence
+**Current Milestone:** FastAPI REST API
 
-**Automated Tests:** 43 Passed | 0 Failed
+**Automated Tests:** 57 Passed | 0 Failed
 
-The application supports synthetic security log generation, CSV/JSONL ingestion, authentication threat detection, and persistent storage with duplicate prevention and referential integrity.
+Sentinel now supports:
 
-The next phase is building a REST API with FastAPI.
+- Security event validation and normalization.
+- Synthetic security log generation.
+- CSV and JSONL ingestion.
+- Authentication threat detection.
+- Persistent SQLite storage.
+- Read-only REST API access.
+- Pagination, filtering, and security statistics.
+- Automated unit and integration testing.
 
-## Implemented Features
+**Next Milestone:** Interactive Security Dashboard.
 
-### Session 1 — Project Foundation
-
-- Python 3.13 virtual environment and modular `src/` package architecture.
-- Pydantic `SecurityEvent` model.
-- IPv4 and IPv6 address validation.
-- Timestamp validation and UTC normalization.
-- Validation of event types, usernames, and outcomes.
-- Pytest unit testing.
-- Ruff linting and formatting.
-
-**Result:** 8 automated tests passed.
-
-### Session 2 — Synthetic Log Generation & Ingestion
-
-- Deterministic synthetic authentication log generator.
-- CSV and JSONL file ingestion.
-- Shared Pydantic validation for imported records.
-- Per-record error handling without discarding otherwise valid events.
-- Import reports showing accepted, rejected, and total records.
-- Automated parsing, validation, and generator tests.
-
-**Result:** 12 additional automated tests.
-
-### Session 3 — Authentication Threat Detection
-
-Implemented a rule-based threat detection engine using configurable thresholds and sliding time windows.
-
-**Detection rules:**
-
-| Rule ID | Description | Severity |
-| --- | --- | --- |
-| AUTH-001 | Five or more failed authentication attempts from the same IP within five minutes | Medium |
-| AUTH-002 | Successful authentication following five or more failures for the same IP and account within five minutes | High |
-
-Additional capabilities:
-
-- Chronological processing of security events.
-- Sliding-window analysis using Python `deque`.
-- Grouping by source IP and username.
-- Structured `SecurityAlert` model.
-- Deterministic alert identifiers.
-- Evidence tracking through associated event UUIDs.
-- Synthetic authentication attack scenario.
-
-**Result:** 15 additional automated tests.
-
-Detection rules identify suspicious behavior that warrants investigation; they do not independently prove compromise.
-
-### Session 4 — SQLite Database Persistence
-
-Implemented persistent storage using SQLite and SQLAlchemy 2.x.
-
-**Database capabilities:**
-
-- Save and retrieve validated security events.
-- Save and retrieve generated detection alerts.
-- Maintain relationships between alerts and supporting event evidence.
-- Prevent duplicate events and alerts using unique identifiers.
-- Enforce database foreign-key constraints.
-- Use transactions to commit successful operations and roll back failures.
-- Preserve records between separate application executions.
-- Access persistence operations through a dedicated repository layer.
-
-**Database tables:**
-
-| Table | Purpose |
-| --- | --- |
-| `security_events` | Stores validated security log events |
-| `security_alerts` | Stores generated threat detection alerts |
-| `alert_events` | Associates security alerts with supporting events |
-
-**Result:** 8 additional automated tests.
-
-**Verified milestone:** All 43 automated tests passed. Persistent retrieval, duplicate prevention, and Ruff checks were also verified.
-
-## Technology Stack
-
-| Technology | Purpose | Status |
-| --- | --- | --- |
-| Python 3.13 | Core application | Implemented |
-| Pydantic | Event and alert validation | Implemented |
-| CSV / JSON libraries | Structured log processing | Implemented |
-| Python `deque` | Sliding-window detection | Implemented |
-| SQLite | Persistent local database | Implemented |
-| SQLAlchemy 2.x | ORM and repository operations | Implemented |
-| Pytest | Automated testing | Implemented |
-| Ruff | Linting and formatting | Implemented |
-| FastAPI | REST API | Planned |
-| Streamlit | Analytics dashboard | Planned |
-| GitHub Actions | CI and automated security checks | Planned |
-
-## System Architecture
+## Architecture
 
 ```text
-           Synthetic Security Logs
-                      |
-                      v
-             CSV / JSONL Readers
-                      |
-                      v
-             Pydantic Validation
-                      |
-              +-------+-------+
-              |               |
-              v               v
-       Accepted Events   Rejected Records
+                  CSV / JSONL Logs
+                         |
+                         v
+                 Ingestion Pipeline
+                         |
+                         v
+                 Pydantic Validation
+                         |
+              +----------+----------+
+              |                     |
+              v                     v
+       Accepted Events       Rejected Records
               |
               v
          Detection Engine
@@ -140,15 +56,133 @@ Implemented persistent storage using SQLite and SQLAlchemy 2.x.
               v
           SQLite Database
               |
-       +------+------+ 
-       |      |      |
-       v      v      v
-     Events Alerts Evidence
+              v
+           FastAPI
+              |
+              v
+       REST API Endpoints
+              |
+              v
+     Streamlit Dashboard
+           (Planned)
 ```
 
-The application separates ingestion, detection, and persistence responsibilities into independent modules.
+The application separates data ingestion, security detection, persistence, and API communication into modular components.
 
-This architecture supports future integration with FastAPI without requiring the API to implement database or detection logic directly.
+## Implemented Features
+
+### Session 1 — Project Foundation
+
+- Python 3.13 virtual environment and modular package structure.
+- Pydantic `SecurityEvent` model.
+- IPv4 and IPv6 address validation.
+- Timestamp normalization to UTC.
+- Field-level validation and standardized event types.
+- Automated tests using Pytest.
+- Ruff configuration for linting and formatting.
+
+**Tests:** 8 passed.
+
+### Session 2 — Log Generation and Ingestion
+
+- Deterministic synthetic authentication log generator.
+- CSV and JSONL file readers.
+- Shared event validation.
+- Per-record rejection tracking.
+- Ingestion summaries containing accepted and rejected record counts.
+- Automated ingestion and generator tests.
+
+**Tests:** 12 additional tests.
+
+### Session 3 — Authentication Threat Detection
+
+Implemented a rule-based detection engine using configurable thresholds and sliding time windows.
+
+| Rule | Detection | Severity |
+| --- | --- | --- |
+| AUTH-001 | Five authentication failures from one IP within five minutes | Medium |
+| AUTH-002 | Successful authentication after five failures from the same IP and account | High |
+
+Additional functionality:
+
+- Chronological event processing.
+- Sliding windows using Python `deque`.
+- Grouping by IP address and account.
+- Structured alerts and severity scores.
+- Supporting evidence through event UUIDs.
+- Deterministic alert identifiers.
+
+**Tests:** 15 additional tests.
+
+### Session 4 — Persistent Database Storage
+
+Introduced SQLite persistence using SQLAlchemy.
+
+- Persistent storage of validated security events.
+- Persistent storage of detection alerts.
+- Alert-to-event evidence relationships.
+- Primary- and foreign-key constraints.
+- Duplicate event and alert prevention.
+- Transaction management and rollback.
+- Repository abstraction for database operations.
+- CLI commands for importing, scanning, and retrieving records.
+
+**Database tables:**
+
+| Table | Purpose |
+| --- | --- |
+| `security_events` | Stores validated events |
+| `security_alerts` | Stores generated alerts |
+| `alert_events` | Links alerts to supporting events |
+
+**Tests:** 8 additional tests.
+
+### Session 5 — FastAPI REST API
+
+Developed a local read-only REST API using FastAPI.
+
+**Features:**
+
+- HTTP endpoints for security events and alerts.
+- Retrieval of individual records using UUIDs.
+- Pagination using `limit` and `offset`.
+- Filtering by authentication outcome and alert severity.
+- Aggregated security statistics.
+- Typed Pydantic response models.
+- Automatic OpenAPI documentation.
+- Isolated database sessions using dependency injection.
+- HTTP integration testing through FastAPI's `TestClient`.
+
+**API Endpoints:**
+
+| Method | Endpoint | Description |
+| --- | --- | --- |
+| GET | `/health` | Service health status |
+| GET | `/events` | Paginated security events |
+| GET | `/events/{event_id}` | Retrieve event by UUID |
+| GET | `/alerts` | Paginated security alerts |
+| GET | `/alerts/{alert_id}` | Retrieve alert with evidence |
+| GET | `/stats/summary` | Aggregate security statistics |
+
+**Tests:** 14 additional tests.
+
+## Technology Stack
+
+| Technology | Purpose |
+| --- | --- |
+| Python 3.13 | Application development |
+| Pydantic | Event and alert validation |
+| CSV / JSON | Log ingestion |
+| Python `deque` | Sliding-window detection |
+| SQLite | Persistent database |
+| SQLAlchemy 2.x | ORM and database queries |
+| FastAPI | REST API |
+| Uvicorn | Local HTTP server |
+| HTTPX / HTTP testing client | API integration testing |
+| Pytest | Automated testing |
+| Ruff | Linting and formatting |
+| Streamlit | Planned dashboard |
+| GitHub Actions | Planned continuous integration |
 
 ## Getting Started
 
@@ -165,14 +199,14 @@ git clone https://github.com/maliky67/sentinel-security-monitor.git
 cd sentinel-security-monitor
 ```
 
-### 2. Create and Activate a Virtual Environment
+### 2. Create the Virtual Environment
 
 ```powershell
 py -3.13 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 ```
 
-For subsequent development sessions, simply reactivate the existing environment:
+For subsequent sessions, activate the existing environment:
 
 ```powershell
 .\.venv\Scripts\Activate.ps1
@@ -190,127 +224,125 @@ python -m pip install -e ".[dev]"
 python scripts/generate_logs.py --count 100
 ```
 
-This creates CSV and JSONL files in `data/samples/`.
+Generated files are saved under `data/samples/`.
 
-### 5. Run Log Ingestion
+### 5. Validate Log Ingestion
 
 ```powershell
 python -m sentinel.ingestion.demo data/samples/authentication.jsonl
 ```
 
-### 6. Run the Detection Engine
+### 6. Run Threat Detection
 
-Generate a controlled authentication attack scenario:
+Generate a controlled authentication scenario:
 
 ```powershell
 python scripts/generate_attack_scenario.py
 ```
 
-Analyze the scenario:
+Analyze the generated file:
 
 ```powershell
 python -m sentinel.detection.demo data/samples/brute_force_scenario.jsonl
 ```
 
-The scenario contains five failed login attempts followed by a successful login and is designed to generate AUTH-001 and AUTH-002.
+The scenario is designed to produce both AUTH-001 and AUTH-002.
 
-## Persistent Database Commands
+### 7. Store and Analyze Events
 
-Session 4 introduces a command-line interface for storing and retrieving security analysis results.
-
-### Import Security Events
+Import the scenario into SQLite:
 
 ```powershell
 python -m sentinel.storage.demo import data/samples/brute_force_scenario.jsonl
 ```
 
-For a new database, the expected result is:
-
-```text
-Accepted: 6
-Rejected: 0
-New events stored: 6
-```
-
-### Analyze Stored Events
+Run detection on the stored events:
 
 ```powershell
 python -m sentinel.storage.demo scan
 ```
 
-For a database containing only the attack scenario:
-
-```text
-Stored events analyzed: 6
-Alerts detected: 2
-New alerts stored: 2
-```
-
-### View Stored Alerts
+Retrieve stored alerts:
 
 ```powershell
 python -m sentinel.storage.demo alerts
 ```
 
-Stored alerts remain available between application executions.
+The default database is `data/sentinel.db`.
 
-### Verify Duplicate Prevention
+Reimporting the same saved file will not create duplicate event records.
 
-Reimport the same saved file:
-
-```powershell
-python -m sentinel.storage.demo import data/samples/brute_force_scenario.jsonl
-```
-
-The expected number of new events is zero.
-
-Rescan the database:
+### 8. Start the REST API
 
 ```powershell
-python -m sentinel.storage.demo scan
+python -m uvicorn sentinel.api.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Previously stored alerts will not be duplicated when their deterministic identifiers match.
+Open the interactive documentation:
 
-**Note:** These expected counts assume a fresh database. Results may differ if additional events have already been imported.
+**[Interactive API documentation](http://127.0.0.1:8000/docs)**
 
-### Use a Separate Database
+The following endpoints are available while the server is running:
 
-Supply `--db` before the subcommand:
+- `http://127.0.0.1:8000/health`
+- `http://127.0.0.1:8000/events`
+- `http://127.0.0.1:8000/alerts`
+- `http://127.0.0.1:8000/stats/summary`
 
-```powershell
-python -m sentinel.storage.demo --db data/test-sentinel.db alerts
+**Example filtering:**
+
+```text
+GET /events?outcome=failure&limit=10&offset=0
+
+GET /alerts?severity=high
 ```
 
-The default database is stored at `data/sentinel.db` and excluded from Git through `.gitignore`.
+Example summary for a fresh database containing only the six-event attack scenario:
 
-## Testing and Code Quality
+```json
+{
+  "total_events": 6,
+  "total_alerts": 2,
+  "failed_authentications": 5,
+  "high_severity_alerts": 1
+}
+```
 
-### Run the Complete Test Suite
+Actual values depend on the contents of your local database.
+
+## Automated Testing
+
+Run all tests:
 
 ```powershell
 python -m pytest -v
 ```
 
-**Verified results — October 28, 2026:**
+Run API integration tests:
+
+```powershell
+python -m pytest tests/unit/test_api.py -v
+```
+
+### Verified Results — October 28, 2026
 
 | Session | Tests | Result |
 | --- | ---: | --- |
-| Session 1 — Event Validation | 8 | Passed |
-| Session 2 — Log Ingestion | 12 | Passed |
-| Session 3 — Threat Detection | 15 | Passed |
-| Session 4 — SQLite Persistence | 8 | Passed |
-| **Total** | **43** | **Passed** |
+| 001 — Event Validation | 8 | Passed |
+| 002 — Log Ingestion | 12 | Passed |
+| 003 — Threat Detection | 15 | Passed |
+| 004 — SQLite Persistence | 8 | Passed |
+| 005 — FastAPI REST API | 14 | Passed |
+| **Total** | **57** | **Passed** |
 
-All 43 collected tests passed. This represents a 100% test pass rate, not a claim of 100% code coverage.
+**Test pass rate:** 100%  
+**Failed:** 0
 
-### Run Storage Tests
+The latest verified run reported one dependency deprecation warning. Dependency maintenance is being tracked separately.
 
-```powershell
-python -m pytest tests/unit/test_storage.py -v
-```
+A 100% test pass rate does not imply complete code coverage.
 
-### Check Code Quality
+### Code Quality
 
 ```powershell
 ruff check .
@@ -326,7 +358,8 @@ sentinel-security-monitor/
 │       ├── session-001.md
 │       ├── session-002.md
 │       ├── session-003.md
-│       └── session-004.md
+│       ├── session-004.md
+│       └── session-005.md
 ├── src/
 │   └── sentinel/
 │       ├── models/
@@ -339,11 +372,13 @@ sentinel-security-monitor/
 │       ├── detection/
 │       │   ├── engine.py
 │       │   └── demo.py
-│       └── storage/
-│           ├── models.py
-│           ├── database.py
-│           ├── repository.py
-│           └── demo.py
+│       ├── storage/
+│       │   ├── models.py
+│       │   ├── database.py
+│       │   ├── repository.py
+│       │   └── demo.py
+│       └── api/
+│           └── main.py
 ├── scripts/
 │   ├── generate_logs.py
 │   └── generate_attack_scenario.py
@@ -353,7 +388,8 @@ sentinel-security-monitor/
 │       ├── test_ingestion.py
 │       ├── test_generator.py
 │       ├── test_detection.py
-│       └── test_storage.py
+│       ├── test_storage.py
+│       └── test_api.py
 ├── data/
 │   └── samples/
 ├── .gitignore
@@ -365,47 +401,49 @@ sentinel-security-monitor/
 
 Sentinel is a local-first educational security monitoring project and is not a production SIEM.
 
-Current security-related engineering practices include:
+Current engineering practices include:
 
-- Synthetic security events rather than sensitive production logs.
-- Strict Pydantic input validation.
-- Consistent UTC timestamps.
-- Controlled rejection of malformed records.
-- Referential integrity through database foreign keys.
-- Transaction rollback on database failures.
-- Duplicate prevention using unique identifiers.
-- Evidence linkage between alerts and source events.
-- Exclusion of local database files and credentials from version control.
+- Pydantic validation of incoming event data.
+- Synthetic or explicitly authorized data sources.
+- Per-record ingestion error handling.
+- UTC timestamp normalization.
+- Foreign-key enforcement and transactional database writes.
+- Duplicate prevention through event and alert identifiers.
+- Linking detection alerts to supporting evidence.
+- Validated API query parameters.
+- Restricted, read-only HTTP endpoints.
+- Localhost-only development server.
 
-**Known limitations:**
+### Known Limitations
 
-- Detection is batch-based, not real-time.
-- Database queries currently retrieve complete collections.
-- SQLite is intended for local use.
-- No database schema migration system is implemented.
-- Database contents are not cryptographically tamper-evident.
-- No user authentication or access-control layer is implemented.
-- Alert severity is based on predefined detection rules.
+- No API authentication or authorization.
+- No rate limiting or TLS termination.
+- No real-time streaming detection.
+- No database schema migration system.
+- No tamper-evident event storage.
+- Detection thresholds are experimental.
+- Local SQLite is not designed for large-scale concurrent usage.
+- The API should not be exposed publicly in its current state.
 
 ## Development Journal
 
-Each session is documented to record engineering decisions, problems encountered, debugging processes, testing results, and planned improvements.
+Sentinel maintains a chronological record of development sessions, implementation decisions, debugging, test results, and planned improvements.
 
 [View Development Journal](docs/development-journal/)
 
 ## Development Roadmap
 
-| Session | Development Focus | Status |
+| Session | Focus | Status |
 | --- | --- | --- |
-| 1 | Python environment and event model | Completed |
-| 2 | Synthetic logs and ingestion pipeline | Completed |
-| 3 | Authentication threat detection engine | Completed |
-| 4 | SQLite persistence and repositories | Completed |
-| 5 | FastAPI REST API | Next |
-| 6 | Interactive security dashboard | Planned |
-| 7 | CI, security scanning and performance benchmarks | Planned |
-| 8 | Documentation and portfolio release | Planned |
+| 001 | Python environment and event model | Completed |
+| 002 | Synthetic log generation and ingestion | Completed |
+| 003 | Authentication threat detection | Completed |
+| 004 | SQLite persistence | Completed |
+| 005 | FastAPI REST API | Implemented — final dependency check pending |
+| 006 | Interactive Streamlit dashboard | Next |
+| 007 | CI, automated security scanning, and benchmarks | Planned |
+| 008 | Documentation and portfolio release | Planned |
 
 ## License
 
-MIT License. See `LICENSE` if present in the repository.
+MIT License. See `LICENSE` if included in the repository.
