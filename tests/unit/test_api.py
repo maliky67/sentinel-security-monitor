@@ -187,3 +187,23 @@ def test_api_is_read_only(api_client):
     response = client.post("/events", json={})
 
     assert response.status_code == 405
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "?limit=0",
+        "?limit=-1",
+        "?limit=101",
+        "?limit=abc",
+        "?offset=-1",
+        "?offset=invalid",
+        "?outcome=unknown",
+    ],
+)
+def test_invalid_event_query_parameters(api_client, query):
+    client, _, _ = api_client
+
+    response = client.get(f"/events{query}")
+
+    assert response.status_code == 422

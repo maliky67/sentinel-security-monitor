@@ -38,6 +38,10 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra"
+markers = [
+    "performance: repeatable performance checks",
+    "stress: large workload and resource stress tests",
+]
 
 [tool.ruff]
 line-length = 88
