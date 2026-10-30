@@ -3,7 +3,7 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import insert, select
 from sqlalchemy.orm import Session
 
 from sentinel.models.alerts import SecurityAlert
@@ -31,35 +31,44 @@ class SentinelRepository:
         self.session = session
 
     def save_events(self, events: list[SecurityEvent]) -> int:
-        """Insert new events while minimizing unnecessary autoflushes."""
+        """Persist events using bounded batches, skipping duplicate IDs."""
+        batch_size = 500
         inserted = 0
-        seen: set[str] = set()
 
-        with self.session.no_autoflush:
-            for item in events:
-                event_id = str(item.event_id)
-
-                if event_id in seen:
-                    continue
-                seen.add(event_id)
-
-                if self.session.get(EventRow, event_id) is not None:
-                    continue
-
-                self.session.add(
-                    EventRow(
-                        event_id=event_id,
-                        timestamp_utc=to_storage_time(item.timestamp),
-                        source_ip=item.source_ip,
-                        username=item.username,
-                        event_type=item.event_type,
-                        outcome=item.outcome,
-                        source=item.source,
-                    )
-                )
-                inserted += 1
-
+        # Keep pending ORM changes consistent with database queries.
         self.session.flush()
+
+        for start in range(0, len(events), batch_size):
+            batch = events[start : start + batch_size]
+
+            # Deduplicate the current batch before database insertion.
+            unique = {str(event.event_id): event for event in batch}
+            ids = list(unique)
+
+            existing = set(
+                self.session.scalars(
+                    select(EventRow.event_id).where(EventRow.event_id.in_(ids))
+                ).all()
+            )
+
+            rows = [
+                {
+                    "event_id": event_id,
+                    "timestamp_utc": to_storage_time(event.timestamp),
+                    "source_ip": event.source_ip,
+                    "username": event.username,
+                    "event_type": event.event_type,
+                    "outcome": event.outcome,
+                    "source": event.source,
+                }
+                for event_id, event in unique.items()
+                if event_id not in existing
+            ]
+
+            if rows:
+                self.session.execute(insert(EventRow), rows)
+                inserted += len(rows)
+
         return inserted
 
     def get_event(self, event_id: UUID) -> SecurityEvent | None:
@@ -98,57 +107,87 @@ class SentinelRepository:
         ]
 
     def save_alerts(self, alerts: list[SecurityAlert]) -> int:
-        """Save new alerts with verified supporting evidence."""
+        """Persist alerts and evidence in bounded batches."""
+        batch_size = 500
         inserted = 0
-        seen: set[str] = set()
 
-        for alert in alerts:
-            alert_id = str(alert.alert_id)
+        self.session.flush()
 
-            if alert_id in seen:
-                continue
-            seen.add(alert_id)
+        for start in range(0, len(alerts), batch_size):
+            batch = alerts[start : start + batch_size]
 
-            if self.session.get(AlertRow, alert_id) is not None:
-                continue
+            unique = {str(alert.alert_id): alert for alert in batch}
+            ids = list(unique)
 
-            # Ensure every supporting event is already stored.
-            for event_id in alert.event_ids:
-                if self.session.get(EventRow, str(event_id)) is None:
-                    raise ValueError(f"Alert references missing event: {event_id}")
-
-            # Step 1: Add the parent alert.
-            self.session.add(
-                AlertRow(
-                    alert_id=alert_id,
-                    rule_id=alert.rule_id,
-                    title=alert.title,
-                    severity=alert.severity,
-                    score=alert.score,
-                    timestamp_utc=to_storage_time(alert.timestamp),
-                    source_ip=alert.source_ip,
-                    username=alert.username,
-                    description=alert.description,
-                    status=alert.status,
-                )
+            existing = set(
+                self.session.scalars(
+                    select(AlertRow.alert_id).where(AlertRow.alert_id.in_(ids))
+                ).all()
             )
 
-            # Step 2: Flush the parent to SQLite first.
-            self.session.flush()
+            new_alerts = [
+                alert for alert_id, alert in unique.items() if alert_id not in existing
+            ]
 
-            # Step 3: Create evidence relationships.
-            for event_id in dict.fromkeys(alert.event_ids):
-                self.session.add(
-                    AlertEventRow(
-                        alert_id=alert_id,
-                        event_id=str(event_id),
-                    )
+            if not new_alerts:
+                continue
+
+            # Validate all referenced evidence before inserting alerts.
+            required_event_ids = {
+                str(event_id) for alert in new_alerts for event_id in alert.event_ids
+            }
+
+            found_event_ids: set[str] = set()
+            evidence_ids = sorted(required_event_ids)
+
+            for offset in range(0, len(evidence_ids), batch_size):
+                id_batch = evidence_ids[offset : offset + batch_size]
+                found_event_ids.update(
+                    self.session.scalars(
+                        select(EventRow.event_id).where(EventRow.event_id.in_(id_batch))
+                    ).all()
                 )
 
-            inserted += 1
+            missing = required_event_ids - found_event_ids
 
-        # Flush remaining evidence relationships.
-        self.session.flush()
+            if missing:
+                raise ValueError(
+                    f"Alert references missing event: {sorted(missing)[0]}"
+                )
+
+            alert_rows = [
+                {
+                    "alert_id": str(alert.alert_id),
+                    "rule_id": alert.rule_id,
+                    "title": alert.title,
+                    "severity": alert.severity,
+                    "score": alert.score,
+                    "timestamp_utc": to_storage_time(alert.timestamp),
+                    "source_ip": alert.source_ip,
+                    "username": alert.username,
+                    "description": alert.description,
+                    "status": alert.status,
+                }
+                for alert in new_alerts
+            ]
+
+            self.session.execute(insert(AlertRow), alert_rows)
+
+            evidence_rows = [
+                {
+                    "alert_id": str(alert.alert_id),
+                    "event_id": event_id,
+                }
+                for alert in new_alerts
+                for event_id in dict.fromkeys(str(value) for value in alert.event_ids)
+            ]
+
+            for offset in range(0, len(evidence_rows), batch_size):
+                evidence_batch = evidence_rows[offset : offset + batch_size]
+                if evidence_batch:
+                    self.session.execute(insert(AlertEventRow), evidence_batch)
+
+            inserted += len(new_alerts)
 
         return inserted
 

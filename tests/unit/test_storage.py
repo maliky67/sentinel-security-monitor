@@ -147,3 +147,99 @@ def test_unknown_event_returns_none(engine):
     with open_session(engine) as session:
         repo = SentinelRepository(session)
         assert repo.get_event(uuid4()) is None
+
+
+def test_batched_events_preserve_all_unique_records(engine, events):
+    source = events[0]
+
+    records = [
+        source.model_copy(
+            update={
+                "event_id": uuid4(),
+                "timestamp": source.timestamp + timedelta(seconds=index),
+            }
+        )
+        for index in range(1100)
+    ]
+
+    # Duplicates both within and across 500-record boundaries.
+    records.extend([records[0], records[501]])
+
+    with open_session(engine) as session:
+        with session.begin():
+            repo = SentinelRepository(session)
+
+            assert repo.save_events(records) == 1100
+            assert repo.save_events(records) == 0
+
+    with open_session(engine) as session:
+        repo = SentinelRepository(session)
+        assert len(repo.list_events()) == 1100
+
+
+def test_batched_alert_evidence_and_duplicates(engine, events):
+    from sqlalchemy import func, select
+
+    from sentinel.storage.models import AlertEventRow, AlertRow
+
+    source = events[0]
+    records = [
+        source.model_copy(
+            update={
+                "event_id": uuid4(),
+                "timestamp": source.timestamp + timedelta(minutes=index * 10),
+            }
+        )
+        for index in range(1100)
+    ]
+
+    # Create a series of five-failure, one-success groups.
+    records = [
+        event.model_copy(
+            update={
+                "source_ip": f"198.18.{index // 256}.{index % 256}",
+                "username": f"account_{index}",
+                "timestamp": source.timestamp + timedelta(minutes=index * 10),
+            }
+        )
+        for index, event in enumerate(records)
+    ]
+
+    # The test focuses on persistence, not the detection engine.
+    sample_alerts = DetectionEngine().analyze(events)
+    assert len(sample_alerts) == 2
+
+    with open_session(engine) as session:
+        with session.begin():
+            repo = SentinelRepository(session)
+            assert repo.save_events(events) == 6
+            assert repo.save_alerts(sample_alerts) == 2
+            assert repo.save_alerts(sample_alerts) == 0
+
+    with open_session(engine) as session:
+        assert session.scalar(select(func.count()).select_from(AlertRow)) == 2
+        assert session.scalar(select(func.count()).select_from(AlertEventRow)) == 11
+
+
+def test_batched_insert_rolls_back_on_failure(engine, events):
+    source = events[0]
+
+    records = [
+        source.model_copy(
+            update={
+                "event_id": uuid4(),
+                "timestamp": source.timestamp + timedelta(seconds=index),
+            }
+        )
+        for index in range(600)
+    ]
+
+    with pytest.raises(RuntimeError, match="force rollback"):
+        with open_session(engine) as session:
+            with session.begin():
+                repo = SentinelRepository(session)
+                assert repo.save_events(records) == 600
+                raise RuntimeError("force rollback")
+
+    with open_session(engine) as session:
+        assert session.query(EventRow).count() == 0
