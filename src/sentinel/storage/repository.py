@@ -31,32 +31,33 @@ class SentinelRepository:
         self.session = session
 
     def save_events(self, events: list[SecurityEvent]) -> int:
-        """Insert new events; skip existing event IDs."""
+        """Insert new events while minimizing unnecessary autoflushes."""
         inserted = 0
         seen: set[str] = set()
 
-        for item in events:
-            event_id = str(item.event_id)
+        with self.session.no_autoflush:
+            for item in events:
+                event_id = str(item.event_id)
 
-            if event_id in seen:
-                continue
-            seen.add(event_id)
+                if event_id in seen:
+                    continue
+                seen.add(event_id)
 
-            if self.session.get(EventRow, event_id) is not None:
-                continue
+                if self.session.get(EventRow, event_id) is not None:
+                    continue
 
-            self.session.add(
-                EventRow(
-                    event_id=event_id,
-                    timestamp_utc=to_storage_time(item.timestamp),
-                    source_ip=item.source_ip,
-                    username=item.username,
-                    event_type=item.event_type,
-                    outcome=item.outcome,
-                    source=item.source,
+                self.session.add(
+                    EventRow(
+                        event_id=event_id,
+                        timestamp_utc=to_storage_time(item.timestamp),
+                        source_ip=item.source_ip,
+                        username=item.username,
+                        event_type=item.event_type,
+                        outcome=item.outcome,
+                        source=item.source,
+                    )
                 )
-            )
-            inserted += 1
+                inserted += 1
 
         self.session.flush()
         return inserted
